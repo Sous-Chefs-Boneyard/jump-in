@@ -3,6 +3,7 @@
   width: -moz-max-content;    /* Firefox/Gecko */
   width: -webkit-max-content;
 }
+
 a.issue-link {
   text-decoration: none;
   font-weight: bold;
@@ -10,4 +11,28 @@ a.issue-link {
 }
 ul { 
   list-style-type: none;
+}
+
+.issue {
+  margin-bottom: 20px;
+}
+
+.issue-age {
+  border-bottom-style: solid;
+  border-bottom-color: rgb(243, 246, 248);
+}
+
+.filter {
+  margin: 3px;
+  padding: 4px 4px;
+  border-radius: 3px;
+}
+
+.updated {
+  font-size: 0.75em;
+  color: rgba(140, 139, 139, 0.77);
+}
+
+.filter:first-child {
+  margin-left: 0;
 }

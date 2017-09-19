@@ -1,5 +1,7 @@
 /* global $, React*/
 import React, { Component } from 'react';
+import $ from "jquery";
+import moment from "moment";
 import './JumpIn.css';
 
 var timeSort = function (l, r) {
@@ -10,12 +12,17 @@ var issuesUrl = "https://api.github.com/search/issues";
 
 var chefRepos = ["chef", "ohai", "mixlib-install", "chef-dk", "mixlib-authentication", "mixlib-shellout"];
 
+var issueTypes = [
+  { name: "Chef", selected: true, org: "chef", description: "Work on the chef-client, ohai, or any of the support libraries.", color: "#F18B21" },
+  { name: "Cookbooks", selected: true, org: "chef-cookbooks", description: "Work on our community cookbooks", color: "#F18B21" }
+];
+
 var extractFunction = function(callback) {
   return function(rb, cb) {
     var chef = rb[0].items, 
-      cookbooks = cb[0].items, 
-      all = chef.concat(cookbooks);
-
+    cookbooks = cb[0].items, 
+    all = chef.concat(cookbooks);
+    
     all.sort(timeSort);
     callback(all);
   };
@@ -23,7 +30,7 @@ var extractFunction = function(callback) {
 
 var getOpenIssues = function(callback) {
   var repos = chefRepos.map( x => "repo:chef/" + x ).join("+");
-
+  
   var issues = $.ajax({
     dataType: "json",
     url: issuesUrl,
@@ -35,23 +42,46 @@ var getOpenIssues = function(callback) {
     url: issuesUrl,
     data: "q=is:issue+state:open+label:\"Type%3A+Jump+In\"+user:chef-cookbooks&sort=updated"
   });
-
+  
   var dataExtractor = extractFunction(callback);
-
+  
   $.when(issues, cookbookIssues).done(dataExtractor);
 };
 
-var repoUrl = function(url) {
-  var urlArray = url.split("/");
-  return urlArray[urlArray.length - 3];
-};
+class Filter extends Component {
+  constructor(props) {
+    super(props);
+    this.handleClick = this.handleClick.bind(this);
+  }
+  
+  handleClick(e) {
+    this.props.onClick(this.props.filter.name);
+  }
+  
+  render() {
+    const filter = this.props.filter;
+    return (
+      <span className="filter" style={{ color: "black", backgroundColor: filter.color, opacity: filter.selected ? 1.0 : 0.5 }} onClick={this.handleClick}>{filter.name}</span>
+    )
+  }
+}
 
 class Issue extends Component {
+  repoUrl(url) {
+    var urlArray = url.split("/");
+    return urlArray[urlArray.length - 3];
+  }
+  
   render() {
+    const issue = this.props.issue;
     return (
-      <li key={this.props.issue.number} className="issue">
-        <div>
-          <a className="issue-link" title={this.props.issue.title} href={this.props.issue.html_url}>{repoUrl(this.props.issue.html_url)} {this.props.issue.number}</a><span> - </span><span>{this.props.issue.title}</span>
+      <li key={issue.number} className="issue">
+      <div>
+      <a className="issue-link" title={issue.title} href={issue.html_url}>{this.repoUrl(issue.html_url)} {issue.number}</a><span> - </span><span>{issue.title}</span>
+      </div>
+      <div className="issue-age">
+        <span className="time"><i className="fa fa-clock-o"/><span className="updated"> Last activity: {moment(issue.updated_at).fromNow()}</span>
+        </span>
         </div>
       </li>
     )
@@ -64,10 +94,12 @@ class JumpIn extends Component {
     this.state = {
       openIssues: [],
       openCookbookIssues: [],
-      openIssuesLoading: true
+      openIssuesLoading: true,
+      repoFilters: issueTypes
     };
+    this.selectRepo = this.selectRepo.bind(this);
   }
-
+  
   componentDidMount() {
     getOpenIssues(function(data) {
       this.setState({
@@ -77,11 +109,35 @@ class JumpIn extends Component {
     }.bind(this));
   }
 
+  selectRepo(filterName) {
+    for (var i = 0; i < issueTypes.length; i++) {
+      if (issueTypes[i].name === filterName) {
+        break;
+      }
+    }
+    
+    this.setState(function(oldState) {
+      var rf = oldState.repoFilters;
+      rf[i].selected = !rf[i].selected;
+      return { repoFilters: rf};
+    });
+  }
+    
+  filterRepos() {
+    var orgs = this.state.repoFilters.filter(function(repo) {
+      if (repo.selected) { 
+        return true;
+      }
+      return false;
+    });
+    var selectedOrgs = orgs.map(repo => repo.org);
+    return selectedOrgs;
+  }
+  
   filterIssues(issues, types) {
     var filteredIssues = issues.filter(function(issue) {
       for (var i = 0; i< types.length; i++) {
         var repoSubStr = "github.com/repos/" + types[i] + "/";
-        console.log("repoSubStr is " + repoSubStr + " and issue url is " + issue.url);
         if (issue.url && issue.url.match(repoSubStr)) {
           return true;
         };
@@ -90,31 +146,36 @@ class JumpIn extends Component {
     });
     return filteredIssues;
   }
-
+   
   render() {
     return (
       <div className="JumpIn">
-        <div className="chs-page-header">
-        
-        </div>
         <main className="main-content">
-        <div className="chs-page-content">
-          <div className="chs-panel chs-panel__large">
-            <div className="content">
-          <h2>Jump In to Chef development!</h2>
-          <p>We'd love you to join the Chef community of contributors and developers, 
-            so we've selected some issues that we think are good to get started with.</p>
-          <p>If you'd like to chat with an existing developer, please join the #chef-dev channel on our <a href="http://community-slack.chef.io/" title="Community Slack">Community Slack</a></p>
+          <div className="chs-page-content">
+            <div className="chs-panel chs-panel__large">
+              <div className="content">
+                <h2>Jump In to Chef development!</h2>
+                <p>We'd love you to join the Chef community of contributors and developers,
+      so we've selected some issues that we think are good to get started with.</p>
+                <p>If you'd like to chat with an existing developer, please join the #chef-dev channel on our <a href="http://community-slack.chef.io/" title="Community Slack">Community Slack</a></p>
 
-          <h2>Open Issues</h2>
-        <ul>
-          {this.filterIssues(this.state.openIssues, ["chef", "chef-cookbooks"]).map((issue) =>
-            <Issue issue={issue}/>
-          )}
-        </ul>
-        </div>
-        </div>
-        </div></main>
+                <h2>How would you like to help?</h2>
+                <p>There are two primary ways of helping out. You can work on the code at the core of Chef itself, or you can work on our cookbooks.</p><p>Select the labels to make your selection!</p>
+                <span className="filters">
+                  {this.state.repoFilters.map((filter) =>
+                    <Filter filter={filter} onClick={this.selectRepo} />
+                  )}               
+                </span>
+                <h2>Open Issues</h2>
+                <ul>
+                  {this.filterIssues(this.state.openIssues, this.filterRepos()).map((issue) =>
+                    <Issue issue={issue} />
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
