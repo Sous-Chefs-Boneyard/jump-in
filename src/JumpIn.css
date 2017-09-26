@@ -13,6 +13,12 @@ ul {
   list-style-type: none;
 }
 
+.filter {
+  margin: 3px;
+  padding: 4px 4px;
+  border-radius: 3px;
+}
+
 .issue {
   margin-bottom: 20px;
 }
@@ -22,9 +28,16 @@ ul {
   border-bottom-color: rgb(243, 246, 248);
 }
 
-.filter {
-  margin: 3px;
-  padding: 4px 4px;
+.label:first-child{
+  margin-left: 0;
+}
+
+.label {
+  display: inline-block;
+  font-weight: bold;
+  font-size: 0.75em;
+  margin: 5px;
+  padding: 4px 8px;
   border-radius: 3px;
 }
 

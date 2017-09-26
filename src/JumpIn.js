@@ -1,4 +1,3 @@
-/* global $, React*/
 import React, { Component } from 'react';
 import $ from "jquery";
 import moment from "moment";
@@ -48,6 +47,26 @@ var getOpenIssues = function(callback) {
   $.when(issues, cookbookIssues).done(dataExtractor);
 };
 
+var getMentoredIssues = function(callback) {
+  var repos = chefRepos.map( x => "repo:chef/" + x ).join("+");
+  
+  var issues = $.ajax({
+    dataType: "json",
+    url: issuesUrl,
+    data: "q=is:issue+state:open+label:\"Type%3A+Mentored\"+" + repos + "&sort=updated"
+  });
+  
+  var cookbookIssues = $.ajax({
+    dataType: "json",
+    url: issuesUrl,
+    data: "q=is:issue+state:open+label:\"Type%3A+Mentored\"+user:chef-cookbooks&sort=updated"
+  });
+  
+  var dataExtractor = extractFunction(callback);
+  
+  $.when(issues, cookbookIssues).done(dataExtractor);
+};
+
 class Filter extends Component {
   constructor(props) {
     super(props);
@@ -66,10 +85,38 @@ class Filter extends Component {
   }
 }
 
+class Label extends Component {
+  getStyle(label) {
+    if (/^Type:/.test(label.name)) {
+      return ({ color: "black", backgroundColor: "#d7e102" });
+    } else {
+      return({ color: "black", backgroundColor: "#" + label.color });
+    }
+  }
+  
+  render() {
+    const label = this.props.label;
+    return (
+      <span className="label" style={this.getStyle(label)}>{label.name}</span>
+    )
+  }
+}
 class Issue extends Component {
   repoUrl(url) {
     var urlArray = url.split("/");
     return urlArray[urlArray.length - 3];
+  }
+
+  filterLabels(labels) {
+    var filteredLabels = labels.filter(function(label) {
+      var name = label.name;
+      // for now, we only want type and area labels, and we already know we're a jump in.
+      if ((/^Type:/.test(name) && !/(Jump In|Mentored)/.test(name)) || (/^Area:/.test(name))) {
+        return true;
+      }
+      return false;
+    });
+    return filteredLabels;
   }
   
   render() {
@@ -79,10 +126,14 @@ class Issue extends Component {
       <div>
       <a className="issue-link" title={issue.title} href={issue.html_url}>{this.repoUrl(issue.html_url)} {issue.number}</a><span> - </span><span>{issue.title}</span>
       </div>
+      <div className="issue-labels">
+        {this.filterLabels(issue.labels).map((label) =>
+         <Label label={label}/>
+        )}
+      </div>
       <div className="issue-age">
-        <span className="time"><i className="fa fa-clock-o"/><span className="updated"> Last activity: {moment(issue.updated_at).fromNow()}</span>
-        </span>
-        </div>
+        <span className="time"><i className="fa fa-clock-o"/><span className="updated"> Last activity: {moment(issue.updated_at).fromNow()}</span></span>
+      </div>
       </li>
     )
   }
@@ -93,9 +144,11 @@ class JumpIn extends Component {
     super(props);
     this.state = {
       openIssues: [],
-      openCookbookIssues: [],
+      openMentoredIssues: [],
       openIssuesLoading: true,
-      repoFilters: issueTypes
+      mentoredIssuesLoading: true,
+      repoFilters: issueTypes,
+      limited: true
     };
     this.selectRepo = this.selectRepo.bind(this);
   }
@@ -105,6 +158,12 @@ class JumpIn extends Component {
       this.setState({
         openIssues: data,
         openIssuesLoading: false
+      });
+    }.bind(this));
+    getMentoredIssues(function(data) {
+      this.setState({
+        openMentoredIssues: data,
+        mentoredIssuesLoading: false
       });
     }.bind(this));
   }
@@ -166,9 +225,16 @@ class JumpIn extends Component {
                     <Filter filter={filter} onClick={this.selectRepo} />
                   )}               
                 </span>
-                <h2>Open Issues</h2>
+                <h2>Issues to get started with</h2>
                 <ul>
                   {this.filterIssues(this.state.openIssues, this.filterRepos()).map((issue) =>
+                    <Issue issue={issue} />
+                  )}
+                </ul>
+                <h2>Harder issues</h2>
+                <p>These are issues where you'll probably need a bit of help from an established developer to get going.</p>
+                <ul>
+                  {this.filterIssues(this.state.openMentoredIssues, this.filterRepos()).map((issue) =>
                     <Issue issue={issue} />
                   )}
                 </ul>
